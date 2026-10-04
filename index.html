@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIwithTaha — Creative AI Lab</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="logo" href="#">
+      <span class="dot"></span>
+      AIwithTaha
+    </a>
+    <button class="menu" id="menuBtn" aria-label="Open menu">☰</button>
+    <nav id="navLinks">
+      <a href="#home">Home</a>
+      <a href="#about">About</a>
+      <a href="#projects">Projects</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" id="home">
+      <div class="hero-copy">
+        <p class="eyebrow">CREATIVE AI LAB</p>
+        <h1>Building the interface between <span>hands</span> and pixels.</h1>
+        <p class="intro">
+          Exploring computer vision, creative coding and interactive AI experiences.
+        </p>
+        <a class="button" href="#about">Explore the lab ↓</a>
+      </div>
+
+      <div class="visual">
+        <div class="code-card">
+          <span>python</span>
+          <code>hand = detect_gesture(camera)</code>
+          <code>pixels.update(hand)</code>
+          <code>return interactive_image</code>
+        </div>
+        <div class="portrait-card">
+          <div class="scan"></div>
+          <div class="face"></div>
+          <div class="triangle"></div>
+          <span class="caption">COMPUTER VISION / 01</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="about" id="about">
+      <p class="eyebrow">ABOUT THE LAB</p>
+      <h2>Building the interface<br>between hands and pixels.</h2>
+      <p class="body">
+        A small creative space for experimenting with AI, Python, computer vision,
+        motion and visual interfaces.
+      </p>
+    </section>
+
+    <section class="projects" id="projects">
+      <p class="eyebrow">SELECTED WORK</p>
+      <div class="grid">
+        <article><b>01</b><h3>Hand Tracking</h3><p>Real-time gesture experiments.</p></article>
+        <article><b>02</b><h3>AI Vision</h3><p>Computer vision and image effects.</p></article>
+        <article><b>03</b><h3>Creative Code</h3><p>Interactive browser experiments.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer>© 2026 AIwithTaha</footer>
+  <script src="script.js"></script>
+</body>
+</html>
