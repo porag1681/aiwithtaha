@@ -1,72 +1,49 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AIwithTaha — Creative AI Lab</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIwithTaha — Hand Shader Lab</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="nav">
-    <a class="logo" href="#">
-      <span class="dot"></span>
-      AIwithTaha
-    </a>
-    <button class="menu" id="menuBtn" aria-label="Open menu">☰</button>
-    <nav id="navLinks">
-      <a href="#home">Home</a>
-      <a href="#about">About</a>
-      <a href="#projects">Projects</a>
-    </nav>
-  </header>
+<header><a href="#">● AIwithTaha</a><nav><a href="#lab">Lab</a><a href="#about">About</a></nav></header>
 
-  <main>
-    <section class="hero" id="home">
-      <div class="hero-copy">
-        <p class="eyebrow">CREATIVE AI LAB</p>
-        <h1>Building the interface between <span>hands</span> and pixels.</h1>
-        <p class="intro">
-          Exploring computer vision, creative coding and interactive AI experiences.
-        </p>
-        <a class="button" href="#about">Explore the lab ↓</a>
-      </div>
+<main>
+<section class="hero">
+<div class="text">
+<p>REAL-TIME COMPUTER VISION</p>
+<h1>Move your <span>hands.</span><br>Control the pixels.</h1>
+<p class="intro">Live camera + MediaPipe hand tracking + a custom WebGL dither shader running in the browser.</p>
+<button id="startBtn">Start camera</button>
+<div id="status">Camera is off</div>
+</div>
 
-      <div class="visual">
-        <div class="code-card">
-          <span>python</span>
-          <code>hand = detect_gesture(camera)</code>
-          <code>pixels.update(hand)</code>
-          <code>return interactive_image</code>
-        </div>
-        <div class="portrait-card">
-          <div class="scan"></div>
-          <div class="face"></div>
-          <div class="triangle"></div>
-          <span class="caption">COMPUTER VISION / 01</span>
-        </div>
-      </div>
-    </section>
+<div class="lab" id="lab">
+<div class="screen">
+<video id="camera" autoplay playsinline muted></video>
+<canvas id="shaderCanvas"></canvas>
+<div class="label" id="handLabel">HAND: —</div>
+</div>
+<div class="bar"><span>● LIVE CAMERA</span><span id="handCount">0 HANDS</span><span>WEBGL / DITHER</span></div>
+</div>
+</section>
 
-    <section class="about" id="about">
-      <p class="eyebrow">ABOUT THE LAB</p>
-      <h2>Building the interface<br>between hands and pixels.</h2>
-      <p class="body">
-        A small creative space for experimenting with AI, Python, computer vision,
-        motion and visual interfaces.
-      </p>
-    </section>
+<section id="about" class="about">
+<p>HOW IT WORKS</p>
+<h2>Your camera becomes an interactive canvas.</h2>
+<div class="cards">
+<article><b>01</b><h3>Camera</h3><p>Your live camera is the visual source.</p></article>
+<article><b>02</b><h3>Hand tracking</h3><p>MediaPipe detects hand landmarks in real time.</p></article>
+<article><b>03</b><h3>Shader reaction</h3><p>Moving your hand changes the dither, glow and distortion.</p></article>
+</div>
+</section>
+</main>
+<footer>© 2026 AIwithTaha</footer>
 
-    <section class="projects" id="projects">
-      <p class="eyebrow">SELECTED WORK</p>
-      <div class="grid">
-        <article><b>01</b><h3>Hand Tracking</h3><p>Real-time gesture experiments.</p></article>
-        <article><b>02</b><h3>AI Vision</h3><p>Computer vision and image effects.</p></article>
-        <article><b>03</b><h3>Creative Code</h3><p>Interactive browser experiments.</p></article>
-      </div>
-    </section>
-  </main>
-
-  <footer>© 2026 AIwithTaha</footer>
-  <script src="script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
