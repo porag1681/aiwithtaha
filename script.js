@@ -1,58 +1,118 @@
-// ১) এলিমেন্ট ও ভেরিয়েবল
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
-let handLandmarker;
+const startBtn = document.getElementById('startBtn');
+const statusEl = document.getElementById('status');
+const ctx = canvas.getContext('2d');
 
-// ২) Three.js সেটআপ
-const renderer = new THREE.WebGLRenderer({ canvas });
-const scene = new THREE.Scene();
-const camera = new THREE.Camera();
+const GRID = 110; // ডটের সংখ্যা (বেশি = সূক্ষ্ম)
+const COLOR = [182, 255, 0]; // সবুজ
+const small = document.createElement('canvas');
+const sctx = small.getContext('2d', { willReadFrequently: true });
+let handLandmarker, W, H;
 
-// ৩) ভিডিও টেক্সচার + shader material
-const videoTexture = new THREE.VideoTexture(video);
-const material = new THREE.ShaderMaterial({
-uniforms: {
-uVideo: { value: videoTexture },
-uP: { value: [new THREE.Vector2(), new THREE.Vector2(),
-new THREE.Vector2(), new THREE.Vector2()] },
-uHasQuad: { value: 0 }
-},
-vertexShader:   varying vec2 vUv;   void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }  ,
-fragmentShader:   // আগের পাঠানো shader কোড পুরোটা এখানে   // আর // col = dither(col); এর জায়গায় DITHER_HERE  
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+
+function dither() {
+const w = small.width, h = small.height;
+sctx.save();
+sctx.translate(w, 0); sctx.scale(-1, 1); // mirror
+sctx.drawImage(video, 0, 0, w, h);
+sctx.restore();
+const img = sctx.getImageData(0, 0, w, h);
+const d = img.data;
+for (let y = 0; y < h; y++) {
+for (let x = 0; x < w; x++) {
+const i = (y * w + x) * 4;
+const g = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) / 255;
+const t = (BAYER[(y % 4) * 4 + (x % 4)] + 0.5) / 16;
+const on = g > t;
+d[i] = on ? COLOR[0] : 0;
+d[i + 1] = on ? COLOR[1] : 0;
+d[i + 2] = on ? COLOR[2] : 0;
+d[i + 3] = 255;
+}
+}
+sctx.putImageData(img, 0, 0);
+ctx.imageSmoothingEnabled = false;
+ctx.drawImage(small, 0, 0, W, H);
+}
+
+function getQuad(hands) {
+const pts = [];
+for (const hand of hands) {
+for (const i of [4, 8]) {
+pts.push({ x: (1 - hand[i].x) * W, y: hand[i].y * H });
+}
+}
+const cx = pts.reduce((s, p) => s + p.x, 0) / 4;
+const cy = pts.reduce((s, p) => s + p.y, 0) / 4;
+pts.sort((a, b) =>
+Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+return pts;
+}
+
+function loop() {
+// ১) স্বাভাবিক ভিডিও (mirror)
+ctx.save();
+ctx.translate(W, 0); ctx.scale(-1, 1);
+ctx.drawImage(video, 0, 0, W, H);
+ctx.restore();
+
+// ২) দুই হাত থাকলে শুধু ফ্রেমের ভেতরে dither
+const res = handLandmarker.detectForVideo(video, performance.now());
+if (res.landmarks.length === 2) {
+const q = getQuad(res.landmarks);
+ctx.save();
+ctx.beginPath();
+ctx.moveTo(q[0].x, q[0].y);
+q.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+ctx.closePath();
+ctx.clip();
+dither();
+ctx.restore();
+
+ctx.strokeStyle = 'white'; ctx.lineWidth = 2;  
+ctx.beginPath();  
+ctx.moveTo(q[0].x, q[0].y);  
+q.slice(1).forEach(p => ctx.lineTo(p.x, p.y));  
+ctx.closePath(); ctx.stroke();
+
+}
+requestAnimationFrame(loop);
+}
+
+async function start() {
+startBtn.disabled = true;
+statusEl.textContent = 'লোড হচ্ছে...';
+const stream = await navigator.mediaDevices.getUserMedia({
+video: { facingMode: 'user' }, audio: false
 });
-scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
-
-// ৪) MediaPipe সেটআপ (numHands: 2)
-async function init() {
-const stream = await navigator.mediaDevices.getUserMedia({ video: true });
 video.srcObject = stream;
+video.playsInline = true;
 await video.play();
-renderer.setSize(video.videoWidth, video.videoHeight);
-// handLandmarker তৈরি: runningMode 'VIDEO', numHands: 2
+
+W = canvas.width = video.videoWidth;
+H = canvas.height = video.videoHeight;
+small.width = GRID;
+small.height = Math.round(GRID * H / W);
+
+const { HandLandmarker, FilesetResolver } = await import(
+'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
+);
+const fileset = await FilesetResolver.forVisionTasks(
+'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+);
+handLandmarker = await HandLandmarker.createFromOptions(fileset, {
+baseOptions: {
+modelAssetPath:
+'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
+},
+runningMode: 'VIDEO',
+numHands: 2
+});
+
+statusEl.textContent = 'Camera চালু হয়েছে! দুই হাত দিয়ে ফ্রেম বানান।';
 loop();
 }
 
-// ৫) প্রতি ফ্রেমের লুপ
-function loop() {
-if (handLandmarker) {
-const res = handLandmarker.detectForVideo(video, performance.now());
-if (res.landmarks.length === 2) {
-let pts = [];
-for (const hand of res.landmarks) {
-for (const i of [4, 8]) {
-pts.push({ x: 1 - hand[i].x, y: 1 - hand[i].y }); // mirror + y উল্টানো
-}
-}
-// কেন্দ্রের চারপাশে angle দিয়ে sort
-const cx = pts.reduce((s, p) => s + p.x, 0) / 4;
-const cy = pts.reduce((s, p) => s + p.y, 0) / 4;
-pts.sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
-pts.forEach((p, i) => material.uniforms.uP.value[i].set(p.x, p.y));
-material.uniforms.uHasQuad.value = 1;
-} else {
-material.uniforms.uHasQuad.value = 0;
-}
-}
-renderer.render(scene, camera);
-requestAnimationFrame(loop);
-}
+startBtn.addEventListener('click', start);
