@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hand Frame</title>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<style>
+body{margin:0;background:#000;color:#72ddff;font-family:Arial}
+canvas{width:100%;display:block}
+#s{padding:10px;font-size:14px}
+</style>
+</head>
+<body>
+<div id="s">Starting camera...</div>
+<canvas id="c" width="640" height="480"></canvas>
+<video id="v" playsinline style="display:none"></video>
+
+<script>
+const video = document.getElementById("v");
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const st = document.getElementById("s");
+const W = canvas.width, H = canvas.height;
+
+const SW = 64, SH = 48;
+const small = document.createElement("canvas");
+small.width = SW; small.height = SH;
+const sctx = small.getContext("2d");
+
+const palette = [[10,0,60],[110,0,200],[0,255,70]];
+
+function pixelate(){
+  sctx.drawImage(video, 0, 0, SW, SH);
+  const img = sctx.getImageData(0, 0, SW, SH);
+  const d = img.data;
+  for(let i=0;i<d.length;i+=4){
+    const l = (d[i]*0.3 + d[i+1]*0.59 + d[i+2]*0.11)/255;
+    const p = l < 0.35 ? palette[0] : l < 0.65 ? palette[1] : palette[2];
+    d[i]=p[0]; d[i+1]=p[1]; d[i+2]=p[2];
+  }
+  sctx.putImageData(img, 0, 0);
+}
+
+let pts = null;
+
+const hands = new Hands({
+  locateFile: f => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + f
+});
+hands.setOptions({
+  maxNumHands: 2,
+  modelComplexity: 0,
+  minDetectionConfidence: 0.6,
+  minTrackingConfidence: 0.6
+});
+
+hands.onResults(res => {
+  ctx.save();
+  ctx.translate(W, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0, W, H);
+  ctx.restore();
+
+  const hs = res.multiHandLandmarks;
+  if(hs && hs.length === 2){
+    hs.sort((a,b) => (1-a[0].x) - (1-b[0].x));
+    const P = (h,i) => ({x:(1-h[i].x)*W, y:h[i].y*H});
+    const A = hs[0], B = hs[1];
+    pts = [P(A,8), P(B,8), P(B,4), P(A,4)];
+    st.innerText = "Frame active";
+
+    pixelate();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for(let i=1;i<4;i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.closePath();
+    ctx.clip();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(W, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(small, 0, 0, W, H);
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for(let i=1;i<4;i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.closePath();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffe14d";
+    pts.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
+      ctx.fill();
+    });
+  } else {
+    st.innerText = "Show both hands (make an L with thumb and index)";
+  }
+});
+
+async function start(){
+  try{
+    const cam = new Camera(video, {
+      onFrame: async () => { await hands.send({image: video}); },
+      width: 640,
+      height: 480,
+      facingMode: "user"
+    });
+    await cam.start();
+  }catch(e){
+    st.innerText = "Camera error: " + e.name;
+  }
+}
+start();
+</script>
+</body>
+</html>
