@@ -16,166 +16,23 @@
            padding:16px 28px; font-size:1.05rem; font-weight:600; }  
   button:disabled { opacity:.6; }  
   #status { margin:14px 0 24px; color:var(--mut); min-height:1.5em; }  
-  #status.err { color:#ff7a7a; }  
   .stage { position:relative; aspect-ratio:3/4; background:#000;  
            border-radius:24px; overflow:hidden; border:1px solid #1c2030; }  
   video { display:none; }  
-  canvas { position:absolute; inset:0; width:100%; height:100%; }  
-  #dither { image-rendering:pixelated; }  
-  #hud { position:absolute; left:14px; bottom:12px;  
-         font:600 .85rem ui-monospace,monospace; color:var(--acc); }  
+  canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }  
 </style>  
 </head>  
 <body>  
 <main>  
   <h1>Move your <span>hands.</span><br>Control the pixels.</h1>  
-  <p>Live camera + MediaPipe hand tracking + dither effect, সবকিছু ব্রাউজারেই চলে।</p>  <button id="startBtn">Start camera</button>
-
-  <div id="status">Camera is off</div>    <div class="stage">  
-    <video id="camera" autoplay playsinline muted></video>  
-    <canvas id="dither"></canvas>  
-    <canvas id="overlay"></canvas>  
-    <div id="hud">HAND: —</div>  
+  <p>Live camera + MediaPipe hand tracking + dither effect, সবকিছু ব্রাউজারেই চলে।</p>  
+  <button id="startBtn">Start camera</button>  
+  <div id="status">Camera is off</div>  
+  <div class="stage">  
+    <video id="video" autoplay playsinline muted></video>  
+    <canvas id="canvas"></canvas>  
   </div>  
-</main>  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>  <script>  
-const video    = document.getElementById("camera");  
-const startBtn = document.getElementById("startBtn");  
-const statusEl = document.getElementById("status");  
-const hud      = document.getElementById("hud");  
-const dither   = document.getElementById("dither");  
-const overlay  = document.getElementById("overlay");  
-const dctx = dither.getContext("2d");  
-const octx = overlay.getContext("2d");  
-  
-const small = document.createElement("canvas");  
-const sctx  = small.getContext("2d", { willReadFrequently: true });  
-  
-const BAYER = [0,8,2,10, 12,4,14,6, 3,11,1,9, 15,7,13,5];  
-let hand = null;  
-let handsModel = null;  
-let busy = false;  
-  
-function setStatus(msg, isErr=false){  
-  statusEl.textContent = msg;  
-  statusEl.classList.toggle("err", isErr);  
-}  
-  
-const ERR_MSG = {  
-  NotAllowedError: "Camera permission বন্ধ আছে। সাইট সেটিংসে Camera → Allow করে রিলোড দিন।",  
-  NotFoundError: "কোনো ক্যামেরা পাওয়া যায়নি।",  
-  NotReadableError: "অন্য কোনো অ্যাপ ক্যামেরা ব্যবহার করছে। সেটা বন্ধ করুন।",  
-  OverconstrainedError: "ক্যামেরা এই সেটিং সাপোর্ট করছে না।",  
-  SecurityError: "নিরাপত্তা কারণে ক্যামেরা ব্লক হয়েছে (HTTPS লাগবে)।"  
-};  
-  
-async function openCamera(){  
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)  
-    throw Object.assign(new Error("getUserMedia নেই"), { name:"SecurityError" });  
-  try {  
-    return await navigator.mediaDevices.getUserMedia({  
-      video:{ facingMode:"user", width:{ideal:640}, height:{ideal:480} },  
-      audio:false  
-    });  
-  } catch (e) {  
-    if (e.name === "OverconstrainedError")  
-      return await navigator.mediaDevices.getUserMedia({ video:true, audio:false });  
-    throw e;  
-  }  
-}  
-  
-function initHands(){  
-  if (typeof Hands === "undefined")  
-    throw new Error("MediaPipe লোড হয়নি (ইন্টারনেট চেক করুন)");  
-  handsModel = new Hands({  
-    locateFile: f => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + f  
-  });  
-  handsModel.setOptions({  
-    maxNumHands:1, modelComplexity:0,  
-    minDetectionConfidence:.6, minTrackingConfidence:.5  
-  });  
-  handsModel.onResults(r => {  
-    hand = (r.multiHandLandmarks && r.multiHandLandmarks[0]) || null;  
-  });  
-}  
-  
-function drawDither(){  
-  let bias = 0, cols = 120;  
-  if (hand){  
-    const p = hand[9];  
-    bias = (0.5 - p.x) * 160;  
-    cols = Math.round(60 + (1 - p.y) * 180);  
-  }  
-  const vw = video.videoWidth, vh = video.videoHeight;  
-  const rows = Math.round(cols * vh / vw);  
-  if (small.width !== cols || small.height !== rows){  
-    small.width = cols; small.height = rows;  
-    dither.width = cols; dither.height = rows;  
-  }  
-  sctx.save();  
-  sctx.scale(-1, 1);  
-  sctx.drawImage(video, -cols, 0, cols, rows);  
-  sctx.restore();  
-  
-  const img = sctx.getImageData(0, 0, cols, rows);  
-  const d = img.data;  
-  for (let y=0; y<rows; y++){  
-    for (let x=0; x<cols; x++){  
-      const i = (y*cols + x) * 4;  
-      const lum = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2] + bias;  
-      const t = (BAYER[(y&3)*4 + (x&3)] + .5) * 16;  
-      const on = lum > t;  
-      d[i]   = on ? 182 : 5;  
-      d[i+1] = on ? 255 : 6;  
-      d[i+2] = on ? 0   : 10;  
-      d[i+3] = 255;  
-    }  
-  }  
-  dctx.putImageData(img, 0, 0);  
-}  
-  
-function drawHand(){  
-  octx.clearRect(0, 0, overlay.width, overlay.height);  
-  if (!hand){ hud.textContent = "HAND: —"; return; }  
-  hud.textContent = "HAND: DETECTED";  
-  octx.fillStyle = "#fff";  
-  for (const p of hand){  
-    octx.beginPath();  
-    octx.arc((1 - p.x) * overlay.width, p.y * overlay.height, 4, 0, 7);  
-    octx.fill();  
-  }  
-}  
-  
-function loop(){  
-  if (video.readyState >= 2){  
-    if (!busy){  
-      busy = true;  
-      handsModel.send({ image: video }).catch(()=>{}).finally(()=>{ busy = false; });  
-    }  
-    drawDither();  
-    drawHand();  
-  }  
-  requestAnimationFrame(loop);  
-}  
-  
-startBtn.addEventListener("click", async () => {  
-  startBtn.disabled = true;  
-  setStatus("Camera চালু হচ্ছে...");  
-  try {  
-    const stream = await openCamera();  
-    video.srcObject = stream;  
-    await video.play();  
-    overlay.width = video.videoWidth;  
-    overlay.height = video.videoHeight;  
-    setStatus("Model লোড হচ্ছে...");  
-    initHands();  
-    setStatus("Camera চালু হয়েছে! হাত নাড়ান।");  
-    startBtn.textContent = "Camera চলছে";  
-    loop();  
-  } catch (e) {  
-    console.error(e);  
-    setStatus((ERR_MSG[e.name] || e.message) + "  [" + e.name + "]", true);  
-    startBtn.disabled = false;  
-  }  
-});  
-</script>  </body>  
+</main>  
+<script type="module" src="script.js"></script>  
+</body>  
 </html>
